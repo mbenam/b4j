@@ -1,0 +1,67 @@
+'Non-UI application (console / server application)
+#Region Project Attributes 
+	#CommandLineArgs:
+	#MergeLibraries: True 
+#End Region
+
+Sub Process_Globals
+	
+End Sub
+
+Public Sub MidExtract (StringText As String, Start As String, EndAt As String) As String
+	Dim i1 As Int = StringText.IndexOf(Start) + Start.Length
+	Dim i2 As Int = StringText.IndexOf2(EndAt, i1)
+	Return StringText.SubString2(i1, i2)
+End Sub
+
+Sub AppStart (Args() As String)
+	firstSub
+	StartMessageLoop
+	
+End Sub
+
+Sub firstSub()
+	Dim getUrl As String = "https://www.barchart.com/futures/quotes/CLZ24/price-history/historical"
+	Dim apiUrl As String = "https://www.barchart.com/proxies/core-api/v1/historical/get?symbol=CLZ24&fields=tradeTime.format(m/d/Y),openPrice,highPrice,lowPrice,lastPrice,priceChange,percentChange,volume,openInterest,symbolCode,symbolType&type=eod&orderBy=tradeTime&orderDir=desc&limit=65&meta=field.shortName,field.type,field.description&raw=1"
+	Wait For (getBarChart(getUrl, apiUrl)) Complete (new As String)
+	Log(new)
+	
+	Log("Hello world!!!")
+
+End Sub
+Sub getBarChart(getUrl As String, apiUrl As String) As ResumableSub 
+
+	Dim responseString As String
+	Dim xsrfToken As String
+	Dim su As StringUtils
+	Dim job As HttpJob
+
+	job.Initialize("", Me)
+	job.Download(getUrl)
+	job.GetRequest.SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36")
+	Wait For (job) JobDone(job As HttpJob)
+
+	If job.Success Then
+		Dim cookies As List
+		cookies.Initialize
+		cookies = job.Response.GetHeaders.Get("set-cookie")
+		xsrfToken = cookies.Get(1).As(String)
+		xsrfToken = su.DecodeUrl(MidExtract(xsrfToken, "XSRF-TOKEN=", ";"), "UTF8")
+
+		Dim job2 As HttpJob
+
+		job2.Initialize("", Me)
+		job2.Download(apiUrl)
+		job2.GetRequest.SetHeader("X-XSRF-TOKEN", xsrfToken)
+		job2.GetRequest.SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36")
+		Wait For (job2) JobDone(job2 As HttpJob)
+
+		If job2.Success Then
+			responseString = job2.GetString
+		End If
+		job2.Release
+	   
+	End If
+	job.Release
+	Return responseString
+End Sub
